@@ -8,21 +8,17 @@ from tqdm import tqdm
 from utils.utils import *
 from utils.dataloader import *
 
-
 N_STEPS = 10
 
 def load_data(args, path):
-    
     train_data = MovingMNIST(args, is_train=True, root=path, n_frames_input=N_STEPS, n_frames_output=N_STEPS, num_objects=[2])
     val_data = MovingMNIST(args, is_train=False, root=path, n_frames_input=N_STEPS, n_frames_output=N_STEPS, num_objects=[2])
-
     return train_data, val_data
-
 
 def main(args):
     start_epoch = 1
     path = "./"
-    best_loss = 10000.
+    best_loss = float('inf')
     lr = args.lr
     
     model = get_model(args)
@@ -47,42 +43,53 @@ def main(args):
     if args.reload:
         optimizer.load_state_dict(optimizer_state_dict)
         
-    for epoch in tqdm(range(start_epoch, args.epochs+1), position=0):
+    for epoch in range(start_epoch, args.epochs + 1):
+        print(f"Epoch {epoch}/{args.epochs}")
         
+        # Eğitim Aşaması
         model.train()
-        tq_train = tqdm(train_loader, desc=f"Epoch {epoch}/{args.epochs}", total=len(train_loader), leave=False, position=1)
-
-        for idx, (x, y) in enumerate(tq_train):
+        train_losses = []
+        train_progress = tqdm(train_loader, desc="Training", leave=False, position=0)
+        
+        for x, y in train_progress:
             x, y = x.to(device), y.to(device)
             optimizer.zero_grad()
             logits = model(x)
             loss = loss_fn(logits, y)
             loss.backward()
             optimizer.step()
-
-            tq_train.set_postfix({'loss': '{:.03f}'.format(loss.item())})
-
+            
+            train_losses.append(loss.item())
+            train_progress.set_postfix(loss=f'{loss.item():.4f}')
+        
+        train_loss_avg = sum(train_losses) / len(train_losses)
+        print(f"  Training Loss: {train_loss_avg:.4f}")
+        
+        # Doğrulama Aşaması
         if epoch % 10 == 0 or epoch == 1:
-            test_loss_avg = Averager()
             model.eval()
-            tq_val = tqdm(val_loader, desc=f"Validation", total=len(val_loader), leave=False)
-            for idx, (x, y) in enumerate(tq_val):
-                x, y = x.to(device), y.to(device)
-                logits = model(x)
-                loss = loss_fn(logits, y)
-                tq_val.set_postfix(val_loss=f'{loss.item():.03f}')
-                test_loss_avg.add(loss.item())
-
-            if best_loss > test_loss_avg.item():
-                best_loss = test_loss_avg.item()
-                print(f"Epoch: {epoch}, Best loss: {best_loss:.4f}")
+            val_losses = []
+            val_progress = tqdm(val_loader, desc="Validation", leave=False, position=1)
+            
+            with torch.no_grad():
+                for x, y in val_progress:
+                    x, y = x.to(device), y.to(device)
+                    logits = model(x)
+                    loss = loss_fn(logits, y)
+                    val_losses.append(loss.item())
+                    val_progress.set_postfix(val_loss=f'{loss.item():.4f}')
+            
+            val_loss_avg = sum(val_losses) / len(val_losses)
+            print(f"  Validation Loss: {val_loss_avg:.4f}")
+            
+            if val_loss_avg < best_loss:
+                best_loss = val_loss_avg
+                print(f"  Saving best model with validation loss {best_loss:.4f}")
                 save_checkpoint(model, optimizer, epoch, ckpt_best_path)
         
         save_checkpoint(model, optimizer, epoch, ckpt_path)
 
-
 if __name__ == '__main__':
-    
     parser = argparse.ArgumentParser()
     parser.add_argument('--lr', default=1e-3, type=float, help='learning rate')
     parser.add_argument('--batch_size', default=1, type=int, help='batch size')
@@ -93,7 +100,7 @@ if __name__ == '__main__':
     parser.add_argument('--num_layers', type=int, default=4, help='number of layers')
     parser.add_argument('--frame_num', type=int, default=10, help='number of frames')
     parser.add_argument('--img_size', type=int, default=64, help='image size')
-    parser.add_argument('--gpu_num', type=int, default=1, help='number of GPUs to use')  # Add this line
+    parser.add_argument('--gpu_num', type=int, default=1, help='number of GPUs to use')
     parser.add_argument('--reload', action='store_true', help='reload model')
     args = parser.parse_args()
 
