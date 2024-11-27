@@ -88,8 +88,8 @@ class ConvLSTM_Model(nn.Module):
     
     def init_hidden(self, batch_size, img_size):
         h, w = img_size
-        hidden_state = (torch.zeros(batch_size, self.hidden_dim, h, w, device='mps'),
-                        torch.zeros(batch_size, self.hidden_dim, h, w, device='mps'))
+        hidden_state = (torch.zeros(batch_size, self.hidden_dim, h, w, device='cuda:0'),
+                        torch.zeros(batch_size, self.hidden_dim, h, w, device='cuda:0'))
         states = [] 
         for i in range(self.n_layers):
             states.append(hidden_state)

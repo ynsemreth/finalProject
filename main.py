@@ -33,7 +33,7 @@ def main(args):
     if args.reload:
         start_epoch, lr, optimizer_state_dict = load_checkpoint(model, args, ckpt_path)
     
-    device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.to(device)
     
     train_data, val_data = load_data(args, path)

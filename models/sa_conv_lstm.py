@@ -113,7 +113,7 @@ class SA_ConvLSTM_Model(nn.Module):  # self-attention convlstm for spatiotempora
     
 
     def forward(self, X, hidden = None):
-        device = torch.device('mps')
+        device = torch.device('cuda:0')
         X = X.to(device)
         
         if hidden == None:
@@ -143,7 +143,7 @@ class SA_ConvLSTM_Model(nn.Module):  # self-attention convlstm for spatiotempora
         return torch.sigmoid(predict)
 
     def init_hidden(self, batch_size, img_size):
-        device = torch.device('mps')
+        device = torch.device('cuda:0')
         h, w = img_size
         hidden_state = (torch.zeros(batch_size, self.hidden_dim, h, w).to(device),
                         torch.zeros(batch_size, self.hidden_dim, h, w).to(device),
